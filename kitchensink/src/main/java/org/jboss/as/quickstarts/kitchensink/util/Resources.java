@@ -16,31 +16,68 @@
  */
 package org.jboss.as.quickstarts.kitchensink.util;
 
-import java.util.logging.Logger;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientOptions;
+import com.mongodb.MongoCredential;
+import com.mongodb.ServerAddress;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import org.bson.Document;
+import org.jboss.as.quickstarts.kitchensink.model.Member;
 
 import javax.enterprise.context.RequestScoped;
 import javax.enterprise.inject.Produces;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.faces.context.FacesContext;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
+import javax.inject.Inject;
+import java.util.Collections;
+import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * This class uses CDI to alias Java EE resources, such as the persistence context, to CDI beans
- * 
+ * <p>
  * <p>
  * Example injection on a managed bean field:
  * </p>
- * 
+ * <p>
  * <pre>
  * &#064;Inject
  * private EntityManager em;
  * </pre>
  */
 public class Resources {
+
+    public static final String DB_SERVICE_PREFIX_MAPPING = "DB_SERVICE_PREFIX_MAPPING";
+    @Inject
+    private DbServicePrefixMappingParser dbServicePrefixMappingParser;
+
     @Produces
-    @PersistenceContext
-    private EntityManager em;
+    private MongoClient produceMongoClient() {
+        List<DbServicePrefixMappingParser.DbServicePrefixMapping> mappings = dbServicePrefixMappingParser.parseDbServicePrefixMappingEnvVar(System.getenv(DB_SERVICE_PREFIX_MAPPING));
+        for (DbServicePrefixMappingParser.DbServicePrefixMapping mapping : mappings) {
+            if ("MONGODB".equals(mapping.getDatabaseType().toUpperCase())) {
+                String hostname = System.getenv(mapping.getServiceName() + "_SERVICE_HOST");
+                String port = System.getenv(mapping.getServiceName() + "_SERVICE_PORT");
+                String database = System.getenv(mapping.getEnvPrefix() + "_DATABASE");
+                String username = System.getenv(mapping.getEnvPrefix() + "_USERNAME");
+                String password = System.getenv(mapping.getEnvPrefix() + "_PASSWORD");
+                MongoCredential credential = MongoCredential.createCredential(username, database, password.toCharArray());
+                return new MongoClient(new ServerAddress(hostname, Integer.parseInt(port)), Collections.singletonList(credential));
+            }
+        }
+        throw new IllegalStateException("No MongoDB mapping in " + DB_SERVICE_PREFIX_MAPPING);
+    }
+
+    @Produces
+    private MongoDatabase produceMongoDatabase(MongoClient mongoClient) {
+        return mongoClient.getDatabase(System.getenv("DB_DATABASE"));
+    }
+
+    @Produces
+    private MongoCollection<Document> produceMongoCollection(MongoDatabase mongoDatabase) {
+        return mongoDatabase.getCollection(Member.class.getSimpleName());
+    }
 
     @Produces
     public Logger produceLog(InjectionPoint injectionPoint) {

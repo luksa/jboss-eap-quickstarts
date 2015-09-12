@@ -16,12 +16,14 @@
  */
 package org.jboss.as.quickstarts.kitchensink.service;
 
+import com.mongodb.client.MongoCollection;
+import org.bson.Document;
+import org.jboss.as.quickstarts.kitchensink.mapper.MemberMapper;
 import org.jboss.as.quickstarts.kitchensink.model.Member;
 
 import javax.ejb.Stateless;
 import javax.enterprise.event.Event;
 import javax.inject.Inject;
-import javax.persistence.EntityManager;
 import java.util.logging.Logger;
 
 // The @Stateless annotation eliminates the need for manual transaction demarcation
@@ -32,14 +34,18 @@ public class MemberRegistration {
     private Logger log;
 
     @Inject
-    private EntityManager em;
+    private MongoCollection<Document> mongoCollection;
+
+    @Inject
+    private MemberMapper memberMapper;
 
     @Inject
     private Event<Member> memberEventSrc;
 
     public void register(Member member) throws Exception {
         log.info("Registering " + member.getName());
-        em.persist(member);
+        mongoCollection.insertOne(memberMapper.toDocument(member));
         memberEventSrc.fire(member);
     }
+
 }

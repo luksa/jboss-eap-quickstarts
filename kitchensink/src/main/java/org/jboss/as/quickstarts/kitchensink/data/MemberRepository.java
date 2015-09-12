@@ -16,45 +16,46 @@
  */
 package org.jboss.as.quickstarts.kitchensink.data;
 
+import com.mongodb.client.FindIterable;
+import com.mongodb.client.MongoCollection;
+import org.bson.Document;
+import org.jboss.as.quickstarts.kitchensink.mapper.MemberMapper;
+import org.jboss.as.quickstarts.kitchensink.model.Member;
+
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
-import javax.persistence.EntityManager;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Root;
+import java.util.ArrayList;
 import java.util.List;
-
-import org.jboss.as.quickstarts.kitchensink.model.Member;
 
 @ApplicationScoped
 public class MemberRepository {
 
     @Inject
-    private EntityManager em;
+    private MongoCollection<Document> mongoCollection;
+
+    @Inject
+    private MemberMapper memberMapper;
 
     public Member findById(Long id) {
-        return em.find(Member.class, id);
+        Document document = mongoCollection.find(new Document(MemberMapper.ATTR_ID, id)).first();
+        return convert(document);
     }
 
     public Member findByEmail(String email) {
-        CriteriaBuilder cb = em.getCriteriaBuilder();
-        CriteriaQuery<Member> criteria = cb.createQuery(Member.class);
-        Root<Member> member = criteria.from(Member.class);
-        // Swap criteria statements if you would like to try out type-safe criteria queries, a new
-        // feature in JPA 2.0
-        // criteria.select(member).where(cb.equal(member.get(Member_.email), email));
-        criteria.select(member).where(cb.equal(member.get("email"), email));
-        return em.createQuery(criteria).getSingleResult();
+        FindIterable<Document> results = mongoCollection.find(new Document("email", email));
+        return results.iterator().hasNext() ? convert(results.iterator().next()) : null;
     }
 
     public List<Member> findAllOrderedByName() {
-        CriteriaBuilder cb = em.getCriteriaBuilder();
-        CriteriaQuery<Member> criteria = cb.createQuery(Member.class);
-        Root<Member> member = criteria.from(Member.class);
-        // Swap criteria statements if you would like to try out type-safe criteria queries, a new
-        // feature in JPA 2.0
-        // criteria.select(member).orderBy(cb.asc(member.get(Member_.name)));
-        criteria.select(member).orderBy(cb.asc(member.get("name")));
-        return em.createQuery(criteria).getResultList();
+        FindIterable<Document> results = mongoCollection.find().sort(new Document(MemberMapper.ATTR_NAME, 1));
+        List<Member> list = new ArrayList<Member>();
+        for (Document document : results) {
+            list.add(convert(document));
+        }
+        return list;
+    }
+
+    private Member convert(Document document) {
+        return memberMapper.toMember(document);
     }
 }
