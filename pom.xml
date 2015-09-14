@@ -149,6 +149,7 @@
                 <module>kitchensink</module>
                 <module>kitchensink-ear</module>
                 <module>kitchensink-jsp</module>
+                <module>kitchensink-managed-ds</module>
                 <module>kitchensink-ml</module>
                 <module>kitchensink-ml-ear</module>
                 <module>log4j</module>
